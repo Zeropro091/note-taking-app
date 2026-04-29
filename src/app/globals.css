@@ -1,0 +1,122 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Colors */
+  --color-editorial-bg: var(--editorial-bg);
+  --color-editorial-ink: var(--editorial-ink);
+  --color-editorial-accent: var(--editorial-accent);
+  --color-editorial-line: var(--editorial-line);
+
+  /* Mapping standard shadcn/tailwind colors to the editorial palette */
+  --color-background: var(--editorial-bg);
+  --color-foreground: var(--editorial-ink);
+  --color-primary: var(--editorial-accent);
+  --color-primary-foreground: var(--editorial-bg);
+  --color-border: var(--editorial-line);
+  --color-ring: var(--editorial-accent);
+  
+  /* Fonts */
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+  --font-display: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* Editorial Palette - Light Mode */
+  --editorial-bg: #F8F7F2;      /* Warm paper */
+  --editorial-ink: #141414;     /* Print ink */
+  --editorial-accent: #D94126;  /* Terracotta */
+  --editorial-line: rgba(20, 20, 20, 0.1);
+
+  /* Shadcn Variables Compatibility */
+  --background: var(--editorial-bg);
+  --foreground: var(--editorial-ink);
+  --card: var(--editorial-bg);
+  --card-foreground: var(--editorial-ink);
+  --popover: var(--editorial-bg);
+  --popover-foreground: var(--editorial-ink);
+  --primary: var(--editorial-accent);
+  --primary-foreground: var(--editorial-bg);
+  --secondary: rgba(20, 20, 20, 0.05);
+  --secondary-foreground: var(--editorial-ink);
+  --muted: rgba(20, 20, 20, 0.05);
+  --muted-foreground: rgba(20, 20, 20, 0.6);
+  --accent: rgba(20, 20, 20, 0.05);
+  --accent-foreground: var(--editorial-ink);
+  --destructive: #ef4444;
+  --border: var(--editorial-line);
+  --input: var(--editorial-line);
+  --ring: var(--editorial-accent);
+  --radius: 0rem; /* Editorial look often prefers sharp edges */
+}
+
+.dark {
+  /* Editorial Palette - Dark Mode Inversion */
+  --editorial-bg: #141414;      /* Deep ink background */
+  --editorial-ink: #E5E5E1;     /* Light paper-like text */
+  --editorial-accent: #D94126;  /* Terracotta remains the same */
+  --editorial-line: rgba(229, 229, 225, 0.15);
+
+  --background: var(--editorial-bg);
+  --foreground: var(--editorial-ink);
+  --card: var(--editorial-bg);
+  --card-foreground: var(--editorial-ink);
+  --popover: var(--editorial-bg);
+  --popover-foreground: var(--editorial-ink);
+  --primary: var(--editorial-accent);
+  --primary-foreground: var(--editorial-bg);
+  --secondary: rgba(229, 229, 225, 0.1);
+  --secondary-foreground: var(--editorial-ink);
+  --muted: rgba(229, 229, 225, 0.1);
+  --muted-foreground: rgba(229, 229, 225, 0.6);
+  --accent: rgba(229, 229, 225, 0.1);
+  --accent-foreground: var(--editorial-ink);
+  --border: var(--editorial-line);
+  --input: var(--editorial-line);
+  --ring: var(--editorial-accent);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  
+  body {
+    @apply bg-editorial-bg text-editorial-ink antialiased;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv11";
+  }
+
+  /* Global Scrollbar Hiding */
+  * {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
+
+  *::-webkit-scrollbar {
+    display: none;             /* Chrome, Safari and Opera */
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
