@@ -27,19 +27,13 @@ updated: '2026-04-12T12:00:00.000Z'
 - **Progress**: 80% - Features complete, testing phase
 - **Blockers**: None currently
 
-### [[Projects/Project-2|Project 2]]
-- **Status**: Planning
+### Neural Content Optimizer
+- **Status**: Research/Prototyping
+- **Tech Stack**: Python (TRIBE v2), FastAPI, Google Colab
 - **Ship Deadline**: 
-- **Brief**: 
-- **Progress**: 0%
-- **Blockers**:
-
-### [[Projects/Project-3|Project 3]]
-- **Status**: Idea
-- **Ship Deadline**:
-- **Brief**:
-- **Progress**:
-- **Blockers**:
+- **Brief**: Brain-aligned predictive foundation model for UI/UX engagement
+- **Progress**: 10% - Hardware research and hybrid architecture decided
+- **Blockers**: Local hardware (Intel HD 620) insufficient; requires Colab setup
 
 ---
 
@@ -48,8 +42,7 @@ updated: '2026-04-12T12:00:00.000Z'
 | Project | Status | Deadline | Priority |
 |---------|--------|----------|----------|
 | Note-Taking App | 🟢 Active | Q2 2026 | High |
-| | | | |
-| | | | |
+| Neural Content Optimizer | 🟡 Research | | Medium |
 
 ---
 

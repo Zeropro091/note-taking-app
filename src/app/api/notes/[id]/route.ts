@@ -45,6 +45,11 @@ export async function PUT(
     const { content, frontmatter } = body;
 
     const note = await saveNote(id, content, frontmatter);
+    
+    // Update embedding in the background (don't block the response)
+    import('@/lib/vector-store').then(({ updateNoteEmbedding }) => {
+      updateNoteEmbedding(note).catch(err => console.error('Failed to update embedding:', err));
+    });
 
     return NextResponse.json({
       success: true,

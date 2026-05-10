@@ -55,6 +55,11 @@ export async function POST(request: NextRequest) {
     const { path, title } = validationResult.data;
     const note = await createNote(path, title);
 
+    // Update embedding in the background (don't block the response)
+    import('@/lib/vector-store').then(({ updateNoteEmbedding }) => {
+      updateNoteEmbedding(note).catch(err => console.error('Failed to update embedding:', err));
+    });
+
     return NextResponse.json({
       success: true,
       note,

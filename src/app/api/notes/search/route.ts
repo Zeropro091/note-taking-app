@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllNotes } from '@/lib/file-system';
 import { searchNotes, quickSwitch } from '@/lib/search';
+import { semanticSearch } from '@/lib/vector-store';
 
 export const runtime = 'nodejs';
 
@@ -25,6 +26,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         results: results.map((note) => ({ note })),
+      });
+    }
+
+    if (mode === 'semantic') {
+      const results = await semanticSearch(query, notes, limit);
+      return NextResponse.json({
+        success: true,
+        results,
       });
     }
 
@@ -65,6 +74,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         results: results.map((note) => ({ note })),
+      });
+    }
+
+    if (mode === 'semantic') {
+      const results = await semanticSearch(query, notes, limit);
+      return NextResponse.json({
+        success: true,
+        results,
       });
     }
 

@@ -1,13 +1,13 @@
 'use client';
 
-// Quick switcher for fuzzy searching notes
+// Quick switcher with fuzzy and semantic search
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, FileText, Clock } from 'lucide-react';
+import { Search, FileText, Sparkles, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import type { Note } from '@/types/notes';
+import type { Note, SearchResult } from '@/types/notes';
 
 interface QuickSwitcherProps {
   notes: Note[];
@@ -23,36 +23,64 @@ export default function QuickSwitcher({
   onSelect,
 }: QuickSwitcherProps) {
   const [query, setQuery] = useState('');
+  const [mode, setMode] = useState<'fuzzy' | 'semantic'>('fuzzy');
+  const [results, setResults] = useState<Note[]>([]);
+  const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Filter notes based on query
-  const filteredNotes = useCallback(() => {
-    if (!query.trim()) {
-      // Show recent notes when no query
-      return notes.slice(0, 8);
+  // Perform search
+  const performSearch = useCallback(async (searchQuery: string, searchMode: 'fuzzy' | 'semantic') => {
+    if (!searchQuery.trim()) {
+      setResults(notes.slice(0, 8));
+      return;
     }
 
-    const lowerQuery = query.toLowerCase();
-    return notes
-      .filter((note) =>
-        note.title.toLowerCase().includes(lowerQuery) ||
-        note.tags.some((tag) => tag.toLowerCase().includes(lowerQuery))
-      )
-      .slice(0, 8);
-  }, [notes, query]);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/notes/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: searchQuery,
+          mode: searchMode,
+          limit: 8
+        })
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        if (searchMode === 'semantic') {
+          setResults(data.results.map((r: SearchResult) => r.note));
+        } else {
+          // fuzzy results from backend are already notes or {note}
+          setResults(data.results.map((r: any) => r.note || r));
+        }
+      }
+    } catch (error) {
+      console.error('Search failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [notes]);
 
-  const results = filteredNotes();
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      performSearch(query, mode);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, mode, performSearch]);
 
   // Reset state when dialog opens
   useEffect(() => {
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
-      // Focus input after a small delay to ensure dialog is rendered
+      setResults(notes.slice(0, 8));
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [isOpen]);
+  }, [isOpen, notes]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -67,6 +95,10 @@ export default function QuickSwitcher({
         case 'ArrowUp':
           e.preventDefault();
           setSelectedIndex((i) => Math.max(i - 1, 0));
+          break;
+        case 'Tab':
+          e.preventDefault();
+          setMode(prev => prev === 'fuzzy' ? 'semantic' : 'fuzzy');
           break;
         case 'Enter':
           e.preventDefault();
@@ -95,19 +127,53 @@ export default function QuickSwitcher({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="p-0 max-w-lg bg-editorial-bg border border-editorial-line rounded-none">
         <div className="p-6 font-sans">
-          {/* Search input */}
-          <div className="relative mb-6">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-editorial-ink/30" />
-            <Input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setSelectedIndex(0);
-              }}
-              placeholder="Search archive by title or taxonomy..."
-              className="pl-12 h-12 bg-editorial-ink/5 border-editorial-line rounded-none focus-visible:ring-editorial-accent text-sm"
-            />
+          {/* Search input and mode toggle */}
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-editorial-ink/30" />
+              <Input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setSelectedIndex(0);
+                }}
+                placeholder={mode === 'fuzzy' ? "Search by title or tags..." : "Ask your archive a question..."}
+                className="pl-12 h-12 bg-editorial-ink/5 border-editorial-line rounded-none focus-visible:ring-editorial-accent text-sm"
+              />
+              {loading && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                    className="w-4 h-4 border-2 border-editorial-accent border-t-transparent rounded-full"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 p-1 bg-editorial-ink/5 rounded-full border border-editorial-line w-fit">
+              <button
+                onClick={() => setMode('fuzzy')}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1 text-[9px] font-bold uppercase tracking-wider transition-all",
+                  mode === 'fuzzy' ? "bg-editorial-ink text-editorial-bg" : "text-editorial-ink/40 hover:text-editorial-ink/60"
+                )}
+              >
+                <Search className="w-3 h-3" />
+                Keyword
+              </button>
+              <button
+                onClick={() => setMode('semantic')}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1 text-[9px] font-bold uppercase tracking-wider transition-all",
+                  mode === 'semantic' ? "bg-editorial-accent text-editorial-bg" : "text-editorial-ink/40 hover:text-editorial-ink/60"
+                )}
+              >
+                <Brain className="w-3 h-3" />
+                Semantic
+              </button>
+            </div>
           </div>
 
           {/* Results */}
@@ -115,8 +181,12 @@ export default function QuickSwitcher({
             {results.length === 0 ? (
               <div className="py-12 text-center">
                 <FileText className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                <h4 className="font-display italic text-lg text-editorial-ink/30">Nothing found in the archive.</h4>
-                <p className="text-[10px] uppercase tracking-widest text-editorial-ink/40 mt-1">Try a different term.</p>
+                <h4 className="font-display italic text-lg text-editorial-ink/30">
+                  {loading ? "Scanning the network..." : "Nothing found in the archive."}
+                </h4>
+                <p className="text-[10px] uppercase tracking-widest text-editorial-ink/40 mt-1">
+                  {mode === 'semantic' ? "Try rephrasing your thought." : "Try a different term."}
+                </p>
               </div>
             ) : (
               <div className="py-1">
@@ -141,7 +211,13 @@ export default function QuickSwitcher({
                         : "text-editorial-ink/60 hover:bg-editorial-ink/5"
                     )}
                   >
-                    <FileText className={cn("w-4 h-4 mt-0.5 flex-shrink-0", index === selectedIndex ? "text-editorial-accent" : "text-editorial-ink/20")} />
+                    <div className="mt-0.5 flex-shrink-0">
+                      {mode === 'semantic' ? (
+                        <Sparkles className={cn("w-4 h-4", index === selectedIndex ? "text-editorial-accent" : "text-editorial-ink/20")} />
+                      ) : (
+                        <FileText className={cn("w-4 h-4", index === selectedIndex ? "text-editorial-accent" : "text-editorial-ink/20")} />
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">{note.title}</div>
                       <div className={cn(
@@ -150,23 +226,6 @@ export default function QuickSwitcher({
                       )}>
                         {note.path}
                       </div>
-                      {note.tags.length > 0 && (
-                        <div className="flex gap-2 mt-2">
-                          {note.tags.slice(0, 3).map((tag) => (
-                            <span
-                              key={tag}
-                              className={cn(
-                                "text-[9px] px-2 py-0.5 border font-bold uppercase tracking-wider",
-                                index === selectedIndex
-                                  ? "border-editorial-bg/20 text-editorial-bg/80"
-                                  : "border-editorial-line text-editorial-ink/40"
-                              )}
-                            >
-                              #{tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </motion.button>
                 ))}
@@ -178,8 +237,8 @@ export default function QuickSwitcher({
           <div className="mt-6 pt-6 border-t border-editorial-line flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.15em] text-editorial-ink/30">
             <div className="flex gap-6">
               <span className="flex items-center gap-2"><kbd className="px-1.5 py-0.5 bg-editorial-ink/5 border border-editorial-line">↑↓</kbd> Navigate</span>
+              <span className="flex items-center gap-2"><kbd className="px-1.5 py-0.5 bg-editorial-ink/5 border border-editorial-line">Tab</kbd> Switch Mode</span>
               <span className="flex items-center gap-2"><kbd className="px-1.5 py-0.5 bg-editorial-ink/5 border border-editorial-line">↵</kbd> Open</span>
-              <span className="flex items-center gap-2"><kbd className="px-1.5 py-0.5 bg-editorial-ink/5 border border-editorial-line">Esc</kbd> Close</span>
             </div>
             <span>{results.length} Entries</span>
           </div>
@@ -189,13 +248,12 @@ export default function QuickSwitcher({
   );
 }
 
-// Hook to trigger quick switcher with keyboard shortcut
+// Hook to trigger quick switcher
 export function useQuickSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + K to open quick switcher
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsOpen(true);

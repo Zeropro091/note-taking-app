@@ -30,6 +30,7 @@ export interface GraphNode {
   label: string;
   tags: string[];
   path: string;
+  community?: number;
 }
 
 export interface GraphEdge {

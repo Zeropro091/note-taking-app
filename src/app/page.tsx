@@ -10,18 +10,11 @@ import {
   Search,
   GitGraph,
   PanelRight,
-  FolderTree,
   Plus,
-  ChevronDown,
-  ChevronUp,
-  Files,
-  FolderOpen,
-  Link2,
-  List,
-  Tags as TagsIcon,
+  Terminal as TerminalIcon,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const NoteEditor = dynamic(() => import('@/components/editor/NoteEditor'), { ssr: false });
 const FileTree = dynamic(() => import('@/components/sidebar/FileTree'), { ssr: false });
@@ -31,11 +24,12 @@ const GraphView = dynamic(() => import('@/components/graph/GraphView'), { ssr: f
 const BacklinksPanel = dynamic(() => import('@/components/panels/BacklinksPanel'), { ssr: false });
 const OutlinePanel = dynamic(() => import('@/components/panels/OutlinePanel'), { ssr: false });
 const TagsPanel = dynamic(() => import('@/components/panels/TagsPanel'), { ssr: false });
+import Terminal from '@/components/Terminal';
 
-// Extract useQuickSwitcher from the QuickSwitcher component
-const { useQuickSwitcher } = require('@/components/sidebar/QuickSwitcher');
+// Import useQuickSwitcher from the QuickSwitcher component
+import { useQuickSwitcher } from '@/components/sidebar/QuickSwitcher';
 
-function getTabClassName(active: boolean, base: string) {
+function getTabClassName(active: boolean) {
   return cn(
     'flex-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest transition-all duration-200',
     active 
@@ -59,9 +53,8 @@ export default function Home() {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [activeSidebarTab, setActiveSidebarTab] = useState<'files' | 'groups'>('files');
   const [activeRightTab, setActiveRightTab] = useState<'backlinks' | 'outline' | 'tags'>('backlinks');
-  const [sidebarTabsCollapsed, setSidebarTabsCollapsed] = useState(false);
-  const [rightTabsCollapsed, setRightTabsCollapsed] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
   const quickSwitcher = useQuickSwitcher();
 
   const loadData = useCallback(async () => {
@@ -287,6 +280,7 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-4">
+          <ThemeToggle />
           <div className="flex items-center bg-editorial-ink/5 rounded-full px-3 py-1.5 gap-2 border border-editorial-line">
             <button
               onClick={() => setShowGraph(!showGraph)}
@@ -302,6 +296,14 @@ export default function Home() {
               title="Quick switcher (⌘K)"
             >
               <Search className="w-4 h-4" />
+            </button>
+            <div className="w-px h-3 bg-editorial-line" />
+            <button
+              onClick={() => setTerminalOpen(!terminalOpen)}
+              className={cn("p-1 transition-colors", terminalOpen ? "text-editorial-accent" : "text-editorial-ink/40 hover:text-editorial-ink/60")}
+              title="Toggle terminal"
+            >
+              <TerminalIcon className="w-4 h-4" />
             </button>
             <div className="w-px h-3 bg-editorial-line" />
             <button
@@ -339,13 +341,13 @@ export default function Home() {
                 <div className="flex flex-1 border-b border-editorial-line/40">
                   <button
                     onClick={() => setActiveSidebarTab('files')}
-                    className={getTabClassName(activeSidebarTab === 'files', '')}
+                    className={getTabClassName(activeSidebarTab === 'files')}
                   >
                     Archive
                   </button>
                   <button
                     onClick={() => setActiveSidebarTab('groups')}
-                    className={getTabClassName(activeSidebarTab === 'groups', '')}
+                    className={getTabClassName(activeSidebarTab === 'groups')}
                   >
                     Index
                   </button>
@@ -445,19 +447,19 @@ export default function Home() {
                 <div className="flex flex-1 border-b border-editorial-line/40">
                   <button
                     onClick={() => setActiveRightTab('backlinks')}
-                    className={getTabClassName(activeRightTab === 'backlinks', '')}
+                    className={getTabClassName(activeRightTab === 'backlinks')}
                   >
                     Context
                   </button>
                   <button
                     onClick={() => setActiveRightTab('outline')}
-                    className={getTabClassName(activeRightTab === 'outline', '')}
+                    className={getTabClassName(activeRightTab === 'outline')}
                   >
                     Outline
                   </button>
                   <button
                     onClick={() => setActiveRightTab('tags')}
-                    className={getTabClassName(activeRightTab === 'tags', '')}
+                    className={getTabClassName(activeRightTab === 'tags')}
                   >
                     Taxonomy
                   </button>
@@ -491,6 +493,10 @@ export default function Home() {
         isOpen={quickSwitcher.isOpen}
         onClose={quickSwitcher.close}
         onSelect={handleQuickSwitcherSelect}
+      />
+      <Terminal
+        isOpen={terminalOpen}
+        onClose={() => setTerminalOpen(false)}
       />
     </div>
   );

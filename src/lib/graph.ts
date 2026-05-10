@@ -2,6 +2,9 @@
 import type { Note, GraphData, GraphNode, GraphEdge, Backlink } from '@/types/notes';
 import { extractWikilinks } from './markdown';
 
+import { Graph } from 'graphology';
+import louvain from 'graphology-communities-louvain';
+
 // Build graph data from notes
 export function buildGraph(notes: Note[]): GraphData {
   const nodes: GraphNode[] = notes.map((note) => ({
@@ -14,6 +17,10 @@ export function buildGraph(notes: Note[]): GraphData {
   const edges: GraphEdge[] = [];
   const edgeKeySet = new Set<string>();
 
+  // Initialize graphology graph for Louvain
+  const g = new Graph();
+  nodes.forEach(n => g.addNode(n.id));
+
   // Helper to add edge without duplicates
   const addEdge = (source: string, target: string) => {
     if (source === target) return;
@@ -21,6 +28,11 @@ export function buildGraph(notes: Note[]): GraphData {
     if (edgeKeySet.has(key)) return;
     edgeKeySet.add(key);
     edges.push({ source, target });
+    
+    // Add to graphology for community detection
+    if (g.hasNode(source) && g.hasNode(target)) {
+      g.mergeEdge(source, target);
+    }
   };
 
   // 1. Add connections from wikilinks in content
@@ -145,7 +157,21 @@ export function buildGraph(notes: Note[]): GraphData {
     }
   }
 
-  return { nodes, edges };
+  // Run Louvain Community Detection
+  let communities: Record<string, number> = {};
+  try {
+    communities = louvain(g);
+  } catch (e) {
+    console.error('Louvain clustering failed:', e);
+  }
+
+  // Map community IDs back to nodes
+  const finalNodes = nodes.map(node => ({
+    ...node,
+    community: communities[node.id] ?? 0
+  }));
+
+  return { nodes: finalNodes, edges };
 }
 
 // Extract themes/keywords from note content and title

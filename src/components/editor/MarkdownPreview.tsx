@@ -36,7 +36,7 @@ export default function MarkdownPreview({ content, noteId }: MarkdownPreviewProp
                 <a
                   href={href}
                   onClick={(e) => {
-                    if (isInternal) {
+                    if (isInternal && href) {
                       e.preventDefault();
                       window.location.href = href;
                     }
@@ -49,6 +49,10 @@ export default function MarkdownPreview({ content, noteId }: MarkdownPreviewProp
                   {children}
                 </a>
               );
+            },
+            // Prevent hydration errors by unwrapping block elements from paragraphs
+            p: ({ children }: any) => {
+              return <div className="mb-6 last:mb-0 leading-relaxed">{children}</div>;
             },
             // Code blocks with syntax highlighting
             code: ({ node, inline, className, children, ...props }: any) => {

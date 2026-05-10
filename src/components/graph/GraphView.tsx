@@ -77,11 +77,17 @@ export default function GraphView({
 
   // Zoom controls
   const handleZoomIn = () => {
-    fgRef.current?.zoomInOut(1.3);
+    if (fgRef.current) {
+      const currentZoom = fgRef.current.zoom();
+      fgRef.current.zoom(currentZoom * 1.3, 400);
+    }
   };
 
   const handleZoomOut = () => {
-    fgRef.current?.zoomInOut(0.7);
+    if (fgRef.current) {
+      const currentZoom = fgRef.current.zoom();
+      fgRef.current.zoom(currentZoom * 0.7, 400);
+    }
   };
 
   const handleReset = () => {
@@ -190,6 +196,23 @@ export default function GraphView({
     }
   }, [selectedNodeId, currentData, isIsolated]);
 
+  // Community-based coloring (Louvain)
+  const getCommunityColor = useCallback((community: number | undefined) => {
+    if (community === undefined) return '#141414';
+    // Warm, editorial-friendly palette for communities
+    const palette = [
+      '#141414', // Charcoal
+      '#D94126', // Terracotta
+      '#4A5D4E', // Sage
+      '#5E4A5D', // Plum
+      '#4A555D', // Slate
+      '#8C7356', // Bronze
+      '#568C7B', // Ocean
+      '#7B568C', // Violet
+    ];
+    return palette[community % palette.length];
+  }, []);
+
   // Configure forces for better spacing when data changes
   useEffect(() => {
     if (!fgRef.current) return;
@@ -231,6 +254,43 @@ export default function GraphView({
     }
   };
 
+  // Optimize link drawing
+  const drawLink = useCallback((link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+    const start = link.source;
+    const end = link.target;
+    if (typeof start !== 'object' || typeof end !== 'object') return;
+
+    const isHovered = hoveredNode && (start.id === hoveredNode || end.id === hoveredNode);
+    
+    // Performance optimization: Skip shadows at very small scales
+    const shouldGlow = globalScale > 0.2;
+
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+
+    const sourceColor = start.color && start.color !== '#141414' ? start.color : '#3b82f6';
+    
+    if (isHovered) {
+      ctx.strokeStyle = '#D94126';
+      ctx.lineWidth = 2 / globalScale;
+      if (shouldGlow) {
+        ctx.shadowBlur = 12 / globalScale;
+        ctx.shadowColor = '#D94126';
+      }
+    } else {
+      ctx.strokeStyle = `rgba(${hexToRgb(sourceColor)}, 0.4)`;
+      ctx.lineWidth = 0.8 / globalScale;
+      if (shouldGlow) {
+        ctx.shadowBlur = 4 / globalScale;
+        ctx.shadowColor = sourceColor;
+      }
+    }
+    
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }, [hoveredNode]);
+
   return (
     <div className={`
       relative bg-editorial-bg
@@ -256,9 +316,9 @@ export default function GraphView({
         <button
           onClick={handleReset}
           className="p-2 text-editorial-ink/40 hover:text-editorial-accent transition-colors"
-          title="Reset view"
+          title="View All / Reset"
         >
-          <RotateCcw className="w-4 h-4" />
+          <Maximize2 className="w-4 h-4" />
         </button>
         <button
           onClick={togglePause}
@@ -266,13 +326,6 @@ export default function GraphView({
           title={isPaused ? "Resume" : "Pause"}
         >
           {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-        </button>
-        <button
-          onClick={() => setIsFullscreen(!isFullscreen)}
-          className="p-2 text-editorial-ink/40 hover:text-editorial-accent transition-colors"
-          title="Fullscreen"
-        >
-          <Maximize2 className="w-4 h-4" />
         </button>
       </div>
 
@@ -343,20 +396,16 @@ export default function GraphView({
         `}
         nodeColor={(node: any) => {
           if (hoveredNode) {
-            if (node.id === hoveredNode) return '#D94126';
-            if (adjacencyMap.get(hoveredNode)?.has(node.id)) return '#141414';
-            return 'rgba(20, 20, 20, 0.05)';
+            if (node.id === hoveredNode) return '#D94126'; // Terracotta accent
+            if (adjacencyMap.get(hoveredNode)?.has(node.id)) return getCommunityColor(node.community);
+            return 'rgba(20, 20, 20, 0.05)'; // Ghostly
           }
-          return node.color;
+          if (node.id === selectedNodeId) return '#D94126';
+          return getCommunityColor(node.community);
         }}
         nodeRelSize={4}
-        linkColor={() => '#000000'}
-        linkWidth={(link: any) => {
-          if (hoveredNode && (link.source?.id === hoveredNode || link.target?.id === hoveredNode)) {
-            return 1.5;
-          }
-          return 0.5;
-        }}
+        linkCanvasObjectMode={() => 'after'}
+        linkCanvasObject={drawLink}
         onNodeClick={handleNodeClick}
         onNodeHover={handleNodeHover}
         onBackgroundClick={handleBackgroundClick}
@@ -366,9 +415,8 @@ export default function GraphView({
         d3AlphaDecay={0.02}
         d3VelocityDecay={0.4}
         warmupTicks={100}
-        minZoom={0.5}
+        minZoom={0.01}
         maxZoom={10}
-        enableNodeDrag={!isPaused}
         onEngineStop={() => console.log('Graph engine stabilized')}
       />
 
@@ -488,4 +536,15 @@ function getColorForTags(tags: string[] | undefined | null): string {
   const hash = firstTag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const hue = hash % 360;
   return `hsl(${hue}, 70%, 50%)`;
+}
+
+// Helper to convert hex to rgb string for rgba usage
+function hexToRgb(hex: string): string {
+  // Try to parse standard hex
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (result) {
+    return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
+  }
+  // Fallback for hsl or named colors (simplification)
+  return '100, 100, 100'; 
 }
