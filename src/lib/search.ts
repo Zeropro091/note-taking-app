@@ -3,6 +3,32 @@ import Fuse from 'fuse.js';
 import type { Note, SearchResult } from '@/types/notes';
 import { generateSnippet } from './markdown';
 
+// Cache for Fuse instances to avoid re-indexing on every search
+interface SearchCache {
+  signature: string;
+  index: Fuse<Note>;
+}
+
+let fullSearchCache: SearchCache | null = null;
+let quickSearchCache: SearchCache | null = null;
+
+/**
+ * Generates a unique signature for a collection of notes.
+ * Used to determine if the cache needs to be invalidated.
+ */
+function getNotesSignature(notes: Note[]): string {
+  if (notes.length === 0) return 'empty';
+
+  // Use length and max updatedAt as a heuristic for changes
+  let maxUpdate = 0;
+  for (const note of notes) {
+    const time = note.updatedAt.getTime();
+    if (time > maxUpdate) maxUpdate = time;
+  }
+
+  return `${notes.length}-${maxUpdate}`;
+}
+
 // Create Fuse instance for fuzzy search
 function createFuseIndex(notes: Note[]): Fuse<Note> {
   return new Fuse(notes, {
@@ -26,7 +52,17 @@ export function searchNotes(
 ): SearchResult[] {
   if (!query.trim()) return [];
 
-  const fuse = createFuseIndex(notes);
+  const signature = getNotesSignature(notes);
+
+  // Reuse or create the Fuse index
+  let fuse: Fuse<Note>;
+  if (fullSearchCache && fullSearchCache.signature === signature) {
+    fuse = fullSearchCache.index;
+  } else {
+    fuse = createFuseIndex(notes);
+    fullSearchCache = { signature, index: fuse };
+  }
+
   const results = fuse.search(query, { limit });
 
   return results.map((result) => {
@@ -63,10 +99,19 @@ export function searchNotes(
 export function quickSwitch(notes: Note[], query: string, limit = 8): Note[] {
   if (!query.trim()) return notes.slice(0, limit);
 
-  const fuse = new Fuse(notes, {
-    keys: [{ name: 'title', weight: 3 }, { name: 'path', weight: 1 }],
-    threshold: 0.3,
-  });
+  const signature = getNotesSignature(notes);
+
+  // Reuse or create the Fuse index
+  let fuse: Fuse<Note>;
+  if (quickSearchCache && quickSearchCache.signature === signature) {
+    fuse = quickSearchCache.index;
+  } else {
+    fuse = new Fuse(notes, {
+      keys: [{ name: 'title', weight: 3 }, { name: 'path', weight: 1 }],
+      threshold: 0.3,
+    });
+    quickSearchCache = { signature, index: fuse };
+  }
 
   return fuse.search(query, { limit }).map((result) => result.item);
 }
