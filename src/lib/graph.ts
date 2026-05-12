@@ -35,14 +35,20 @@ export function buildGraph(notes: Note[]): GraphData {
     }
   };
 
+  // Build lookup map for O(1) targeting
+  const noteLookup = new Map<string, Note>();
+  for (const note of notes) {
+    if (!noteLookup.has(note.id)) noteLookup.set(note.id, note);
+    if (!noteLookup.has(note.path)) noteLookup.set(note.path, note);
+  }
+
   // 1. Add connections from wikilinks in content
   for (const note of notes) {
     const links = extractWikilinks(note.content);
 
     for (const link of links) {
-      const targetNote = notes.find(
-        (n) => n.id === link.target || n.id === `${link.target}.md` || n.path === link.target
-      );
+      const targetNote = noteLookup.get(link.target) ||
+                         noteLookup.get(`${link.target}.md`);
 
       if (targetNote) {
         addEdge(note.id, targetNote.id);
