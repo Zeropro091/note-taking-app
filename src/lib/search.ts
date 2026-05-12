@@ -3,6 +3,10 @@ import Fuse from 'fuse.js';
 import type { Note, SearchResult } from '@/types/notes';
 import { generateSnippet } from './markdown';
 
+let _fullSearchCache: { notes: Note[]; fuse: Fuse<Note> } | null = null;
+let _quickSearchCache: { notes: Note[]; fuse: Fuse<Note> } | null = null;
+
+
 // Create Fuse instance for fuzzy search
 function createFuseIndex(notes: Note[]): Fuse<Note> {
   return new Fuse(notes, {
@@ -26,7 +30,15 @@ export function searchNotes(
 ): SearchResult[] {
   if (!query.trim()) return [];
 
-  const fuse = createFuseIndex(notes);
+  let fuse: Fuse<Note>;
+
+  if (_fullSearchCache && _fullSearchCache.notes === notes) {
+    fuse = _fullSearchCache.fuse;
+  } else {
+    fuse = createFuseIndex(notes);
+    _fullSearchCache = { notes, fuse };
+  }
+
   const results = fuse.search(query, { limit });
 
   return results.map((result) => {
@@ -63,10 +75,17 @@ export function searchNotes(
 export function quickSwitch(notes: Note[], query: string, limit = 8): Note[] {
   if (!query.trim()) return notes.slice(0, limit);
 
-  const fuse = new Fuse(notes, {
-    keys: [{ name: 'title', weight: 3 }, { name: 'path', weight: 1 }],
-    threshold: 0.3,
-  });
+  let fuse: Fuse<Note>;
+
+  if (_quickSearchCache && _quickSearchCache.notes === notes) {
+    fuse = _quickSearchCache.fuse;
+  } else {
+    fuse = new Fuse(notes, {
+      keys: [{ name: 'title', weight: 3 }, { name: 'path', weight: 1 }],
+      threshold: 0.3,
+    });
+    _quickSearchCache = { notes, fuse };
+  }
 
   return fuse.search(query, { limit }).map((result) => result.item);
 }

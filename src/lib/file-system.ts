@@ -7,6 +7,12 @@ import type { Note, FileNode } from '@/types/notes';
 
 const NOTES_DIR = path.join(process.cwd(), 'data', 'notes');
 
+let _notesCache: Note[] | null = null;
+
+export function invalidateCache() {
+  _notesCache = null;
+}
+
 /**
  * Validate note ID to prevent path traversal attacks
  * @param id - The note ID to validate
@@ -84,6 +90,8 @@ export async function ensureNotesDir(): Promise<void> {
 
 // Read all markdown files recursively
 export async function getAllNotes(): Promise<Note[]> {
+  if (_notesCache) return _notesCache;
+
   await ensureNotesDir();
   const notes: Note[] = [];
 
@@ -116,7 +124,8 @@ export async function getAllNotes(): Promise<Note[]> {
   }
 
   await walkDir(NOTES_DIR);
-  return notes.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  _notesCache = notes.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  return _notesCache;
 }
 
 // Read a single note by ID
@@ -174,6 +183,7 @@ export async function saveNote(id: string, content: string, frontmatter?: Record
 
   await fs.mkdir(path.dirname(notePath), { recursive: true });
   await fs.writeFile(notePath, markdown, 'utf-8');
+  invalidateCache();
 
   return getNoteById(safeId) as Promise<Note>;
 }
@@ -188,6 +198,7 @@ export async function deleteNote(id: string): Promise<void> {
   const safeId = sanitizeNoteId(id);
   const notePath = path.join(NOTES_DIR, `${safeId}.md`);
   await fs.unlink(notePath);
+  invalidateCache();
 }
 
 // Get file tree structure
@@ -262,6 +273,7 @@ export async function renameNote(oldId: string, newId: string): Promise<Note> {
 
   await fs.mkdir(path.dirname(newPath), { recursive: true });
   await fs.rename(oldPath, newPath);
+  invalidateCache();
 
   return getNoteById(safeNewId) as Promise<Note>;
 }
