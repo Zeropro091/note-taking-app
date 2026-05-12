@@ -30,7 +30,8 @@ export function extractWikilinks(content: string): Wikilink[] {
 export function replaceWikilinks(content: string, currentNoteId: string): string {
   if (!content) return '';
   return content.replace(WIKILINK_REGEX, (match, target, display) => {
-    const linkTarget = target.endsWith('.md') ? target : `${target}.md`;
+    const trimmedTarget = target.trim();
+    const linkTarget = trimmedTarget.endsWith('.md') ? trimmedTarget : `${trimmedTarget}.md`;
     const text = (display || target).trim();
     return `[${text}](/${linkTarget})`;
   });
@@ -104,7 +105,7 @@ export function stripMarkdown(content: string, maxLength = 200): string {
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, '$2')
+    .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target, display) => display || target)
     .replace(/^\s*[-*+]\s/gm, '')
     .replace(/^\s*\disable+\.\s/gm, '')
     .replace(/\n+/g, ' ')
