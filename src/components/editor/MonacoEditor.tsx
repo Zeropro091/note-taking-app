@@ -75,13 +75,23 @@ export default function MonacoEditor({
   readOnly = false,
 }: MonacoEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const [localContent, setLocalContent] = useState(content);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    setLocalContent(content);
     setIsDarkMode(document.documentElement.classList.contains('dark'));
-  }, [noteId, content]);
+    
+    // Observer for dark mode changes
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          setIsDarkMode(document.documentElement.classList.contains('dark'));
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, { attributes: true });
+    return () => observer.disconnect();
+  }, []);
 
   const handleMount: OnMount = (editor) => {
     editorRef.current = editor;
@@ -95,7 +105,6 @@ export default function MonacoEditor({
 
   const handleChange: OnChange = (value) => {
     if (value !== undefined) {
-      setLocalContent(value);
       onChange(value);
     }
   };
@@ -103,9 +112,10 @@ export default function MonacoEditor({
   return (
     <div className="h-full w-full bg-editorial-bg">
       <Editor
+        key={noteId}
         height="100%"
         defaultLanguage="markdown"
-        value={localContent}
+        defaultValue={content}
         onChange={handleChange}
         onMount={handleMount}
         theme={isDarkMode ? "vs-dark" : "vs"}

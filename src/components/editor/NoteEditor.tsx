@@ -1,7 +1,7 @@
 'use client';
 
 // Combined editor with markdown preview
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,12 @@ export default function NoteEditor({
     setHasUnsavedChanges(newContent !== initialContent);
   }, [initialContent]);
 
+  const isSaving = useRef(false);
+
   const handleSave = useCallback(async () => {
+    if (isSaving.current) return;
+    
+    isSaving.current = true;
     setSaveStatus('saving');
     try {
       await onSave(content);
@@ -49,6 +54,8 @@ export default function NoteEditor({
     } catch (error) {
       console.error('Failed to save note:', error);
       setSaveStatus('idle');
+    } finally {
+      isSaving.current = false;
     }
   }, [content, onSave]);
 

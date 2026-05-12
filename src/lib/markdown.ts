@@ -2,12 +2,18 @@
 import type { Wikilink } from '@/types/notes';
 
 // Wikilink regex: [[note-name]] or [[note-name|display text]]
-const WIKILINK_REGEX = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+// Non-greedy matches and constrained character sets to prevent catastrophic backtracking
+const WIKILINK_REGEX = /\[\[([^\]\r\n|]+?)(?:\|([^\]\r\n]+?))?\]\]/g;
 
 // Extract all wikilinks from markdown content
 export function extractWikilinks(content: string): Wikilink[] {
+  if (!content) return [];
+  
   const links: Wikilink[] = [];
   let match;
+
+  // Reset regex index for safety when using global flag
+  WIKILINK_REGEX.lastIndex = 0;
 
   while ((match = WIKILINK_REGEX.exec(content)) !== null) {
     links.push({
@@ -22,22 +28,27 @@ export function extractWikilinks(content: string): Wikilink[] {
 
 // Replace wikilinks with markdown links for rendering
 export function replaceWikilinks(content: string, currentNoteId: string): string {
+  if (!content) return '';
   return content.replace(WIKILINK_REGEX, (match, target, display) => {
     const linkTarget = target.endsWith('.md') ? target : `${target}.md`;
-    const text = display || target;
+    const text = (display || target).trim();
     return `[${text}](/${linkTarget})`;
   });
 }
 
-// Extract headings from markdown content
-export function extractHeadings(content: string): Array<{
+interface Heading {
   level: number;
   text: string;
   id: string;
   line: number;
-}> {
-  const headings: Array<{ level: number; text: string; id: string; line: number }> = [];
-  const lines = content.split('\n');
+}
+
+// Extract headings from markdown content
+export function extractHeadings(content: string): Heading[] {
+  if (!content) return [];
+  
+  const headings: Heading[] = [];
+  const lines = content.split(/\r?\n/);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -60,6 +71,8 @@ export function extractHeadings(content: string): Array<{
 
 // Generate a snippet from content around search terms
 export function generateSnippet(content: string, query: string, maxLength = 200): string {
+  if (!content) return '';
+  
   const cleanContent = content.replace(/[#*`_\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
   const lowerContent = cleanContent.toLowerCase();
   const lowerQuery = query.toLowerCase();
@@ -83,6 +96,8 @@ export function generateSnippet(content: string, query: string, maxLength = 200)
 
 // Strip markdown for preview
 export function stripMarkdown(content: string, maxLength = 200): string {
+  if (!content) return '';
+  
   return content
     .replace(/#{1,6}\s/g, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -91,8 +106,9 @@ export function stripMarkdown(content: string, maxLength = 200): string {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, '$2')
     .replace(/^\s*[-*+]\s/gm, '')
-    .replace(/^\s*\d+\.\s/gm, '')
+    .replace(/^\s*\disable+\.\s/gm, '')
     .replace(/\n+/g, ' ')
     .trim()
     .slice(0, maxLength);
 }
+

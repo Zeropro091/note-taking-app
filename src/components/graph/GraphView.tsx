@@ -25,6 +25,7 @@ export default function GraphView({
   notes = [],
 }: GraphViewProps) {
   const fgRef = useRef<any>(null);
+
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -32,6 +33,24 @@ export default function GraphView({
   const [isIsolated, setIsIsolated] = useState(false);
   const [isolatedData, setIsolatedData] = useState<FGData | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+
+  // Warm, editorial-friendly palette for communities
+  const communityPalette = useMemo(() => [
+    '#141414', // Charcoal
+    '#D94126', // Terracotta
+    '#4A5D4E', // Sage
+    '#5E4A5D', // Plum
+    '#4A555D', // Slate
+    '#8C7356', // Bronze
+    '#568C7B', // Ocean
+    '#7B568C', // Violet
+  ], []);
+
+  // Community-based coloring (Louvain)
+  const getCommunityColor = useCallback((community: number | undefined) => {
+    if (community === undefined) return '#141414';
+    return communityPalette[community % communityPalette.length];
+  }, [communityPalette]);
 
   // Get note details for a node ID
   const getNoteDetails = useCallback((nodeId: string): Note | undefined => {
@@ -79,14 +98,14 @@ export default function GraphView({
   const handleZoomIn = () => {
     if (fgRef.current) {
       const currentZoom = fgRef.current.zoom();
-      fgRef.current.zoom(currentZoom * 1.3, 400);
+      fgRef.current.zoom(currentZoom * 1.3, 300);
     }
   };
 
   const handleZoomOut = () => {
     if (fgRef.current) {
       const currentZoom = fgRef.current.zoom();
-      fgRef.current.zoom(currentZoom * 0.7, 400);
+      fgRef.current.zoom(currentZoom * 0.7, 300);
     }
   };
 
@@ -98,12 +117,10 @@ export default function GraphView({
   const togglePause = () => {
     setIsPaused(!isPaused);
     if (isPaused) {
-      // Pause the simulation
       if (fgRef.current) {
         fgRef.current.pauseAnimation();
       }
     } else {
-      // Resume animation
       if (fgRef.current) {
         fgRef.current.resumeAnimation();
       }
@@ -133,11 +150,11 @@ export default function GraphView({
   const isolateNode = useCallback((nodeId: string) => {
     const neighbors = adjacencyMap.get(nodeId) || new Set<string>();
     const connectedNodeIds = new Set([nodeId, ...Array.from(neighbors)]);
-    
+
     // Filter nodes from currentData (which already has tag filtering applied)
     const filteredNodes = currentData.nodes.filter((n: any) => connectedNodeIds.has(n.id));
     const filteredLinks = currentData.links.filter((l: any) =>
-      connectedNodeIds.has(typeof l.source === 'object' ? l.source.id : l.source) && 
+      connectedNodeIds.has(typeof l.source === 'object' ? l.source.id : l.source) &&
       connectedNodeIds.has(typeof l.target === 'object' ? l.target.id : l.target)
     );
 
@@ -191,27 +208,10 @@ export default function GraphView({
     if (selectedNodeId && fgRef.current && !isIsolated) {
       const node = currentData.nodes.find((n: any) => n.id === selectedNodeId);
       if (node) {
-        fgRef.current.centerAt(node.x || 0, node.y || 0, 1.2, 300);
+        fgRef.current.centerAt((node as any).x || 0, (node as any).y || 0, 300);
       }
     }
   }, [selectedNodeId, currentData, isIsolated]);
-
-  // Community-based coloring (Louvain)
-  const getCommunityColor = useCallback((community: number | undefined) => {
-    if (community === undefined) return '#141414';
-    // Warm, editorial-friendly palette for communities
-    const palette = [
-      '#141414', // Charcoal
-      '#D94126', // Terracotta
-      '#4A5D4E', // Sage
-      '#5E4A5D', // Plum
-      '#4A555D', // Slate
-      '#8C7356', // Bronze
-      '#568C7B', // Ocean
-      '#7B568C', // Violet
-    ];
-    return palette[community % palette.length];
-  }, []);
 
   // Configure forces for better spacing when data changes
   useEffect(() => {
@@ -261,7 +261,7 @@ export default function GraphView({
     if (typeof start !== 'object' || typeof end !== 'object') return;
 
     const isHovered = hoveredNode && (start.id === hoveredNode || end.id === hoveredNode);
-    
+
     // Performance optimization: Skip shadows at very small scales
     const shouldGlow = globalScale > 0.2;
 
@@ -270,7 +270,7 @@ export default function GraphView({
     ctx.lineTo(end.x, end.y);
 
     const sourceColor = start.color && start.color !== '#141414' ? start.color : '#3b82f6';
-    
+
     if (isHovered) {
       ctx.strokeStyle = '#D94126';
       ctx.lineWidth = 2 / globalScale;
@@ -286,7 +286,7 @@ export default function GraphView({
         ctx.shadowColor = sourceColor;
       }
     }
-    
+
     ctx.stroke();
     ctx.shadowBlur = 0;
   }, [hoveredNode]);
@@ -409,7 +409,7 @@ export default function GraphView({
         onNodeClick={handleNodeClick}
         onNodeHover={handleNodeHover}
         onBackgroundClick={handleBackgroundClick}
-        enableNodeDrag={true}
+        enableNodeDrag={!isPaused}
         enableZoomInteraction={true}
         cooldownTicks={isPaused ? 0 : 50}
         d3AlphaDecay={0.02}
@@ -538,13 +538,19 @@ function getColorForTags(tags: string[] | undefined | null): string {
   return `hsl(${hue}, 70%, 50%)`;
 }
 
+// Cache for color conversions to prevent memory leaks and performance issues during high-frequency rendering
+const colorCache = new Map<string, string>();
+
 // Helper to convert hex to rgb string for rgba usage
 function hexToRgb(hex: string): string {
+  if (colorCache.has(hex)) return colorCache.get(hex)!;
+
   // Try to parse standard hex
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (result) {
-    return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
-  }
-  // Fallback for hsl or named colors (simplification)
-  return '100, 100, 100'; 
+  const rgb = result
+    ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
+    : '100, 100, 100';
+
+  colorCache.set(hex, rgb);
+  return rgb;
 }

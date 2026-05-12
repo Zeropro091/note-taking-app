@@ -2,7 +2,7 @@
 import type { Note, GraphData, GraphNode, GraphEdge, Backlink } from '@/types/notes';
 import { extractWikilinks } from './markdown';
 
-import { Graph } from 'graphology';
+import Graph from 'graphology';
 import louvain from 'graphology-communities-louvain';
 
 // Build graph data from notes

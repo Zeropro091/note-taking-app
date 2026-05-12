@@ -24,7 +24,7 @@ const GraphView = dynamic(() => import('@/components/graph/GraphView'), { ssr: f
 const BacklinksPanel = dynamic(() => import('@/components/panels/BacklinksPanel'), { ssr: false });
 const OutlinePanel = dynamic(() => import('@/components/panels/OutlinePanel'), { ssr: false });
 const TagsPanel = dynamic(() => import('@/components/panels/TagsPanel'), { ssr: false });
-import Terminal from '@/components/Terminal';
+const Terminal = dynamic(() => import('@/components/Terminal'), { ssr: false });
 
 // Import useQuickSwitcher from the QuickSwitcher component
 import { useQuickSwitcher } from '@/components/sidebar/QuickSwitcher';
@@ -49,6 +49,9 @@ export default function Home() {
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [activeSidebarTab, setActiveSidebarTab] = useState<'files' | 'groups'>('files');
@@ -58,12 +61,18 @@ export default function Home() {
   const quickSwitcher = useQuickSwitcher();
 
   const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
     try {
       const [notesRes, graphRes] = await Promise.all([
         fetch('/api/notes'),
         fetch('/api/graph')
       ]);
       
+      if (!notesRes.ok || !graphRes.ok) {
+        throw new Error('Failed to reach the archive. Check your connection.');
+      }
+
       const [notesData, graphData] = await Promise.all([
         notesRes.json(),
         graphRes.json()
@@ -71,13 +80,19 @@ export default function Home() {
 
       if (notesData.success) {
         setNotes(notesData.notes);
+      } else {
+        throw new Error(notesData.error || 'Failed to sync archive entries.');
       }
 
       if (graphData.success) {
         setGraph(graphData.graph);
       }
-    } catch (error) {
-      console.error('Failed to load data:', error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred during sync.';
+      setError(message);
+      console.error('Archive Sync Error:', err);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -132,6 +147,10 @@ export default function Home() {
         fetch(`/api/backlinks/${noteId}`)
       ]);
       
+      if (!noteRes.ok || !backlinksRes.ok) {
+        throw new Error('Entry not found or inaccessible.');
+      }
+
       const [noteData, backlinksData] = await Promise.all([
         noteRes.json(),
         backlinksRes.json()
@@ -141,6 +160,7 @@ export default function Home() {
         setCurrentNote(noteData.note);
       } else {
         setCurrentNote(null);
+        setError(noteData.error || 'The requested entry could not be retrieved.');
       }
 
       if (backlinksData.success) {
@@ -148,9 +168,10 @@ export default function Home() {
       } else {
         setBacklinks([]);
       }
-    } catch (error) {
+    } catch (err) {
       setCurrentNote(null);
       setBacklinks([]);
+      setError(err instanceof Error ? err.message : 'Communication error.');
     }
   }, [noteId]);
 
@@ -259,13 +280,26 @@ export default function Home() {
     await handleNoteCreate(id, title);
   }, [handleNoteCreate]);
 
-  const filteredNotes = selectedTag
-    ? notes.filter((n) => n.tags.includes(selectedTag))
-    : notes;
+  const filteredNotes = useMemo(() => 
+    selectedTag
+      ? notes.filter((n) => n.tags.includes(selectedTag))
+      : notes,
+    [notes, selectedTag]
+  );
 
   return (
     <div className="h-screen flex flex-col bg-editorial-bg text-editorial-ink font-sans">
-      <header className="h-16 border-b border-editorial-line flex items-center justify-between px-6 bg-editorial-bg">
+      <header className="h-16 border-b border-editorial-line flex items-center justify-between px-6 bg-editorial-bg relative">
+        {/* Loading Progress Bar */}
+        {isLoading && (
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: '100%' }}
+            className="absolute bottom-0 left-0 h-[1px] bg-editorial-accent z-20"
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          />
+        )}
+        
         <div className="flex items-center gap-6">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -325,6 +359,29 @@ export default function Home() {
           </button>
         </div>
       </header>
+
+      {/* Error Banner */}
+      <AnimatePresence>
+        {error && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-editorial-accent text-editorial-bg px-6 py-2 text-[10px] font-bold uppercase tracking-[0.2em] flex items-center justify-between overflow-hidden"
+          >
+            <span>{error}</span>
+            <button 
+              onClick={() => {
+                setError(null);
+                loadData();
+              }}
+              className="border border-editorial-bg/30 px-3 py-1 hover:bg-editorial-bg hover:text-editorial-accent transition-colors"
+            >
+              Retry Sync
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex-1 flex overflow-hidden">
         <AnimatePresence initial={false}>

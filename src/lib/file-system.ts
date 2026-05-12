@@ -48,22 +48,28 @@ function sanitizeNoteId(id: string): string {
  * @param tags - Tags from frontmatter (can be various types)
  * @returns Array of string tags
  */
-function normalizeTags(tags: any): string[] {
+function normalizeTags(tags: unknown): string[] {
   if (!tags) return [];
 
-  // If it's already an array of strings, return it
+  // If it's already an array, process it
   if (Array.isArray(tags)) {
     return tags
-      .filter((tag) => tag != null) // Remove null/undefined
-      .map((tag) => String(tag)); // Convert everything to string
+      .filter((tag): tag is string | number => tag !== null && tag !== undefined)
+      .map((tag) => String(tag).trim())
+      .filter((tag) => tag.length > 0);
   }
 
-  // If it's a single value, convert to array
+  // If it's a single string, convert to array
   if (typeof tags === 'string') {
-    return [tags];
+    const trimmed = tags.trim();
+    return trimmed.length > 0 ? [trimmed] : [];
   }
 
-  // Fallback: return empty array
+  // If it's a number, convert to string array
+  if (typeof tags === 'number') {
+    return [String(tags)];
+  }
+
   return [];
 }
 

@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { replaceWikilinks } from '@/lib/markdown';
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 
 interface MarkdownPreviewProps {
   content: string;
@@ -13,12 +13,8 @@ interface MarkdownPreviewProps {
 }
 
 export default function MarkdownPreview({ content, noteId }: MarkdownPreviewProps) {
-  const [processedContent, setProcessedContent] = useState(content);
-
-  useEffect(() => {
-    // Replace wikilinks with actual links
-    const processed = replaceWikilinks(content, noteId);
-    setProcessedContent(processed);
+  const processedContent = useMemo(() => {
+    return replaceWikilinks(content, noteId);
   }, [content, noteId]);
 
   return (
@@ -51,11 +47,11 @@ export default function MarkdownPreview({ content, noteId }: MarkdownPreviewProp
               );
             },
             // Prevent hydration errors by unwrapping block elements from paragraphs
-            p: ({ children }: any) => {
+            p: ({ children }) => {
               return <div className="mb-6 last:mb-0 leading-relaxed">{children}</div>;
             },
             // Code blocks with syntax highlighting
-            code: ({ node, inline, className, children, ...props }: any) => {
+            code: ({ inline, className, children, ...props }: any) => {
               if (inline) {
                 return (
                   <code
