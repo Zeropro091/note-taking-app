@@ -158,24 +158,63 @@ export async function saveNote(id: string, content: string, frontmatter?: Record
   await ensureNotesDir();
 
   const safeId = sanitizeNoteId(id);
-  const existingNote = await getNoteById(safeId);
+  const notePath = path.join(NOTES_DIR, `${safeId}.md`);
   const now = new Date().toISOString();
 
+  let existingFrontmatter: Record<string, any> = {};
+  let isNew = false;
+
+  // We can skip reading the existing file if all required frontmatter is fully provided
+  if (!frontmatter || !frontmatter.title || !frontmatter.created) {
+    try {
+      const fileContent = await fs.readFile(notePath, 'utf-8');
+      const match = fileContent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      if (match) {
+        existingFrontmatter = matter(match[0]).data;
+      } else {
+        existingFrontmatter = matter(fileContent).data;
+      }
+    } catch {
+      // File doesn't exist
+      isNew = true;
+    }
+  } else {
+    // We didn't read the file, but we should assume it might be new
+    // We can do a quick check if needed, but fs.mkdir with recursive: true is safe anyway
+    try {
+      await fs.access(notePath);
+    } catch {
+      isNew = true;
+    }
+  }
+
   const frontmatterData = {
-    ...existingNote?.frontmatter,
+    ...existingFrontmatter,
     ...frontmatter,
-    title: frontmatter?.title || existingNote?.title || path.basename(safeId),
+    title: frontmatter?.title || existingFrontmatter?.title || path.basename(safeId),
     updated: now,
-    created: existingNote?.frontmatter?.created || now,
+    created: existingFrontmatter?.created || now,
   };
 
   const markdown = matter.stringify(content, frontmatterData);
-  const notePath = path.join(NOTES_DIR, `${safeId}.md`);
 
-  await fs.mkdir(path.dirname(notePath), { recursive: true });
+  if (isNew) {
+    await fs.mkdir(path.dirname(notePath), { recursive: true });
+  }
   await fs.writeFile(notePath, markdown, 'utf-8');
 
-  return getNoteById(safeId) as Promise<Note>;
+  const stats = await fs.stat(notePath);
+
+  return {
+    id: safeId,
+    path: `${safeId}.md`,
+    title: frontmatterData.title,
+    content: content,
+    frontmatter: frontmatterData,
+    tags: normalizeTags(frontmatterData.tags),
+    createdAt: frontmatterData.created ? new Date(frontmatterData.created) : stats.birthtime,
+    updatedAt: frontmatterData.updated ? new Date(frontmatterData.updated) : stats.mtime,
+  };
 }
 
 // Delete a note
