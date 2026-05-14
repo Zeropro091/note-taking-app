@@ -65,3 +65,10 @@ export interface FileNode {
   type: 'file' | 'folder';
   children?: FileNode[];
 }
+
+export interface Bridge {
+  id: string;
+  title: string;
+  excerpt: string;
+  score: number;
+}
