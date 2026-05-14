@@ -12,6 +12,7 @@ import {
   PanelRight,
   Plus,
   Terminal as TerminalIcon,
+  List,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -21,6 +22,7 @@ const FileTree = dynamic(() => import('@/components/sidebar/FileTree'), { ssr: f
 const NoteGroups = dynamic(() => import('@/components/sidebar/NoteGroups'), { ssr: false });
 const QuickSwitcher = dynamic(() => import('@/components/sidebar/QuickSwitcher'), { ssr: false });
 const GraphView = dynamic(() => import('@/components/graph/GraphView'), { ssr: false });
+const PARABoard = dynamic(() => import('@/components/board/PARABoard'), { ssr: false });
 const BacklinksPanel = dynamic(() => import('@/components/panels/BacklinksPanel'), { ssr: false });
 const OutlinePanel = dynamic(() => import('@/components/panels/OutlinePanel'), { ssr: false });
 const TagsPanel = dynamic(() => import('@/components/panels/TagsPanel'), { ssr: false });
@@ -59,7 +61,7 @@ export default function Home() {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [activeSidebarTab, setActiveSidebarTab] = useState<'files' | 'groups'>('files');
   const [activeRightTab, setActiveRightTab] = useState<'backlinks' | 'outline' | 'tags'>('backlinks');
-  const [showGraph, setShowGraph] = useState(false);
+  const [mainView, setMainView] = useState<'editor' | 'graph' | 'board'>('editor');
   const [terminalOpen, setTerminalOpen] = useState(false);
   const quickSwitcher = useQuickSwitcher();
 
@@ -270,8 +272,37 @@ export default function Home() {
 
   const handleGraphNodeClick = useCallback((nodeId: string) => {
     router.push(`/${nodeId}`);
-    setShowGraph(false);
+    setMainView('editor');
   }, [router]);
+
+  const handleMoveNoteOnBoard = useCallback(async (movedNoteId: string, newTags: string[]) => {
+    const noteToUpdate = notes.find((n) => n.id === movedNoteId);
+    if (!noteToUpdate) return;
+
+    try {
+      const res = await fetch(`/api/notes/${movedNoteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: noteToUpdate.content,
+          frontmatter: {
+            ...noteToUpdate.frontmatter,
+            tags: newTags,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        if (currentNote && currentNote.id === movedNoteId) {
+          setCurrentNote(data.note);
+        }
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Failed to update note tags on board move:', error);
+    }
+  }, [notes, currentNote, loadData]);
 
   const handleQuickSwitcherSelect = useCallback((selectedNoteId: string) => {
     router.push(`/${selectedNoteId}`);
@@ -326,8 +357,16 @@ export default function Home() {
           <ThemeToggle />
           <div className="flex items-center bg-editorial-ink/5 rounded-full px-3 py-1.5 gap-2 border border-editorial-line">
             <button
-              onClick={() => setShowGraph(!showGraph)}
-              className={cn("p-1 transition-colors", showGraph ? "text-editorial-accent" : "text-editorial-ink/40 hover:text-editorial-ink/60")}
+              onClick={() => setMainView(mainView === 'board' ? 'editor' : 'board')}
+              className={cn("p-1 transition-colors", mainView === 'board' ? "text-editorial-accent" : "text-editorial-ink/40 hover:text-editorial-ink/60")}
+              title="Toggle PARA board"
+            >
+              <List className="w-4 h-4" />
+            </button>
+            <div className="w-px h-3 bg-editorial-line" />
+            <button
+              onClick={() => setMainView(mainView === 'graph' ? 'editor' : 'graph')}
+              className={cn("p-1 transition-colors", mainView === 'graph' ? "text-editorial-accent" : "text-editorial-ink/40 hover:text-editorial-ink/60")}
               title="Toggle graph view"
             >
               <GitGraph className="w-4 h-4" />
@@ -445,7 +484,7 @@ export default function Home() {
 
         <main className="flex-1 overflow-hidden relative bg-editorial-bg">
           <AnimatePresence mode="wait">
-            {showGraph ? (
+            {mainView === 'graph' ? (
               <motion.div
                 key="graph"
                 initial={{ opacity: 0 }}
@@ -458,6 +497,23 @@ export default function Home() {
                   onNodeClick={handleGraphNodeClick}
                   selectedNodeId={noteId}
                   notes={notes}
+                />
+              </motion.div>
+            ) : mainView === 'board' ? (
+              <motion.div
+                key="board"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full w-full"
+              >
+                <PARABoard
+                  notes={notes}
+                  onNoteSelect={(path) => {
+                    handleNoteSelect(path);
+                    setMainView('editor');
+                  }}
+                  onMoveNote={handleMoveNoteOnBoard}
                 />
               </motion.div>
             ) : currentNote ? (
