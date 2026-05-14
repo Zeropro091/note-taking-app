@@ -13,17 +13,19 @@ import {
   Plus,
   Terminal as TerminalIcon,
   List,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { ThemeToggle } from '@/components/ThemeToggle';
+  Gauge,
+  } from 'lucide-react';
+  import { cn } from '@/lib/utils';
+  import { ThemeToggle } from '@/components/ThemeToggle';
 
-const NoteEditor = dynamic(() => import('@/components/editor/NoteEditor'), { ssr: false });
-const FileTree = dynamic(() => import('@/components/sidebar/FileTree'), { ssr: false });
-const NoteGroups = dynamic(() => import('@/components/sidebar/NoteGroups'), { ssr: false });
-const QuickSwitcher = dynamic(() => import('@/components/sidebar/QuickSwitcher'), { ssr: false });
-const GraphView = dynamic(() => import('@/components/graph/GraphView'), { ssr: false });
-const PARABoard = dynamic(() => import('@/components/board/PARABoard'), { ssr: false });
-const BacklinksPanel = dynamic(() => import('@/components/panels/BacklinksPanel'), { ssr: false });
+  const NoteEditor = dynamic(() => import('@/components/editor/NoteEditor'), { ssr: false });
+  const FileTree = dynamic(() => import('@/components/sidebar/FileTree'), { ssr: false });
+  const NoteGroups = dynamic(() => import('@/components/sidebar/NoteGroups'), { ssr: false });
+  const QuickSwitcher = dynamic(() => import('@/components/sidebar/QuickSwitcher'), { ssr: false });
+  const GraphView = dynamic(() => import('@/components/graph/GraphView'), { ssr: false });
+  const PARABoard = dynamic(() => import('@/components/board/PARABoard'), { ssr: false });
+  const ProjectCockpit = dynamic(() => import('@/components/board/ProjectCockpit'), { ssr: false });
+  const BacklinksPanel = dynamic(() => import('@/components/panels/BacklinksPanel'), { ssr: false });
 const OutlinePanel = dynamic(() => import('@/components/panels/OutlinePanel'), { ssr: false });
 const TagsPanel = dynamic(() => import('@/components/panels/TagsPanel'), { ssr: false });
 const BridgesPanel = dynamic(() => import('@/components/panels/BridgesPanel'), { ssr: false });
@@ -61,7 +63,7 @@ export default function Home() {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [activeSidebarTab, setActiveSidebarTab] = useState<'files' | 'groups'>('files');
   const [activeRightTab, setActiveRightTab] = useState<'backlinks' | 'outline' | 'tags'>('backlinks');
-  const [mainView, setMainView] = useState<'editor' | 'graph' | 'board'>('editor');
+  const [mainView, setMainView] = useState<'editor' | 'graph' | 'board' | 'cockpit'>('editor');
   const [terminalOpen, setTerminalOpen] = useState(false);
   const quickSwitcher = useQuickSwitcher();
 
@@ -357,6 +359,14 @@ export default function Home() {
           <ThemeToggle />
           <div className="flex items-center bg-editorial-ink/5 rounded-full px-3 py-1.5 gap-2 border border-editorial-line">
             <button
+              onClick={() => setMainView(mainView === 'cockpit' ? 'editor' : 'cockpit')}
+              className={cn("p-1 transition-colors", mainView === 'cockpit' ? "text-editorial-accent" : "text-editorial-ink/40 hover:text-editorial-ink/60")}
+              title="Toggle Project Cockpit"
+            >
+              <Gauge className="w-4 h-4" />
+            </button>
+            <div className="w-px h-3 bg-editorial-line" />
+            <button
               onClick={() => setMainView(mainView === 'board' ? 'editor' : 'board')}
               className={cn("p-1 transition-colors", mainView === 'board' ? "text-editorial-accent" : "text-editorial-ink/40 hover:text-editorial-ink/60")}
               title="Toggle PARA board"
@@ -484,7 +494,22 @@ export default function Home() {
 
         <main className="flex-1 overflow-hidden relative bg-editorial-bg">
           <AnimatePresence mode="wait">
-            {mainView === 'graph' ? (
+            {mainView === 'cockpit' ? (
+              <motion.div
+                key="cockpit"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full w-full"
+              >
+                <ProjectCockpit
+                  onProjectSelect={(path) => {
+                    handleNoteSelect(path);
+                    setMainView('editor');
+                  }}
+                />
+              </motion.div>
+            ) : mainView === 'graph' ? (
               <motion.div
                 key="graph"
                 initial={{ opacity: 0 }}
