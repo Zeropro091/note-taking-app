@@ -24,10 +24,12 @@ const GraphView = dynamic(() => import('@/components/graph/GraphView'), { ssr: f
 const BacklinksPanel = dynamic(() => import('@/components/panels/BacklinksPanel'), { ssr: false });
 const OutlinePanel = dynamic(() => import('@/components/panels/OutlinePanel'), { ssr: false });
 const TagsPanel = dynamic(() => import('@/components/panels/TagsPanel'), { ssr: false });
+const BridgesPanel = dynamic(() => import('@/components/panels/BridgesPanel'), { ssr: false });
 const Terminal = dynamic(() => import('@/components/Terminal'), { ssr: false });
 
 // Import useQuickSwitcher from the QuickSwitcher component
 import { useQuickSwitcher } from '@/components/sidebar/QuickSwitcher';
+import type { Bridge } from '@/types/notes';
 
 function getTabClassName(active: boolean) {
   return cn(
@@ -48,6 +50,7 @@ export default function Home() {
   const [currentNote, setCurrentNote] = useState<Note | null>(null);
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [bridges, setBridges] = useState<Bridge[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -280,6 +283,12 @@ export default function Home() {
     await handleNoteCreate(id, title);
   }, [handleNoteCreate]);
 
+  const handleBridgeConnect = useCallback((bridge: Bridge) => {
+    if (!currentNote) return;
+    const newContent = `${currentNote.content}\n\n## Bridge: [[${bridge.title}]]\n${bridge.excerpt}`;
+    handleSave(newContent);
+  }, [currentNote, handleSave]);
+
   const filteredNotes = useMemo(() => 
     selectedTag
       ? notes.filter((n) => n.tags.includes(selectedTag))
@@ -463,6 +472,7 @@ export default function Home() {
                   noteId={currentNote.id}
                   initialContent={currentNote.content}
                   onSave={handleSave}
+                  onBridgesUpdate={setBridges}
                 />
               </motion.div>
             ) : (
@@ -525,10 +535,17 @@ export default function Home() {
 
               <div className="flex-1 overflow-auto py-4">
                 {activeRightTab === 'backlinks' && (
-                  <BacklinksPanel
-                    backlinks={backlinks}
-                    onNoteClick={handleNoteSelect}
-                  />
+                  <div className="flex flex-col h-full">
+                    <BacklinksPanel
+                      backlinks={backlinks}
+                      onNoteClick={handleNoteSelect}
+                    />
+                    <BridgesPanel 
+                      bridges={bridges}
+                      onNoteClick={handleNoteSelect}
+                      onConnect={handleBridgeConnect}
+                    />
+                  </div>
                 )}
                 {activeRightTab === 'outline' && (
                   <OutlinePanel content={currentNote?.content || ''} />

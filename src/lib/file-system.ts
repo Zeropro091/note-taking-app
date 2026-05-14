@@ -197,7 +197,7 @@ export async function saveNote(id: string, content: string, frontmatter?: Record
     }
   }
 
-  const frontmatterData = {
+  const frontmatterData: any = {
     ...existingFrontmatter,
     ...frontmatter,
     title: frontmatter?.title || existingFrontmatter?.title || path.basename(safeId),

@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Edit, Eye, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useBridges } from '@/hooks/use-bridges';
+import type { Bridge } from '@/types/notes';
 
 const MonacoEditor = dynamic(() => import('./MonacoEditor'), { ssr: false });
 const MarkdownPreview = dynamic(() => import('./MarkdownPreview'), { ssr: false });
@@ -15,6 +17,7 @@ interface NoteEditorProps {
   noteId: string;
   initialContent: string;
   onSave: (content: string) => void;
+  onBridgesUpdate?: (bridges: Bridge[]) => void;
 }
 
 type ViewMode = 'edit' | 'preview' | 'split';
@@ -23,11 +26,18 @@ export default function NoteEditor({
   noteId,
   initialContent,
   onSave,
+  onBridgesUpdate,
 }: NoteEditorProps) {
   const [content, setContent] = useState(initialContent);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  const { bridges } = useBridges(noteId, content);
+
+  useEffect(() => {
+    onBridgesUpdate?.(bridges);
+  }, [bridges, onBridgesUpdate]);
 
   useEffect(() => {
     setContent(initialContent);
